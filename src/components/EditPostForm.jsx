@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const BASE_URL = 'https://post-api-x8s1.onrender.com/api/facebook/posts';
@@ -9,8 +9,19 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
     imageUrl: post.imageUrl || ''
   });
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null); // "success", "error", or null
+  const [status, setStatus] = useState(null); // "success" | "error" | null
   const [message, setMessage] = useState('');
+
+  // Automatically clear message after 3 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('');
+        setStatus(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   const handleInput = (e) => {
     const { name, value } = e.target;
@@ -38,17 +49,17 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
       });
 
       setStatus('success');
-      setMessage('Post updated successfully!');
+      setMessage('✅ Post updated successfully!');
       onUpdateSuccess(res.data);
     } catch (err) {
-      console.error('Update failed:', err);
+      console.error('❌ Update failed:', err);
       const msg =
         err.response?.data?.message ||
         err.response?.data ||
         err.message ||
         'Unknown server error.';
       setStatus('error');
-      setMessage(`Failed to update: ${msg}`);
+      setMessage(`❌ Failed to update: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -77,71 +88,47 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
         />
 
         <div className="actions">
-          <button type="submit" disabled={saving} className="save-btn">
+          <button type="submit" disabled={saving}>
             {saving ? (
-              <span className="spinner"></span>
+              <span className="spinner" />
             ) : (
               'Save'
             )}
           </button>
-          <button
-            type="button"
-            onClick={onCancelEdit}
-            disabled={saving}
-            className="cancel-btn"
-          >
+          <button type="button" onClick={onCancelEdit} disabled={saving}>
             Cancel
           </button>
         </div>
       </form>
 
+      {/* Inline feedback message */}
       {message && (
         <div
-          className={`status-message ${
-            status === 'error' ? 'error' : status === 'success' ? 'success' : ''
-          }`}
+          className={`status ${status === 'success' ? 'success' : status === 'error' ? 'error' : ''}`}
         >
           {message}
         </div>
       )}
 
-      {/* Inline CSS styles (safe for GitHub/Render use) */}
+      {/* Inline CSS styles */}
       <style jsx>{`
+        .edit-form {
+          margin-top: 10px;
+        }
         .actions {
           margin-top: 10px;
           display: flex;
           gap: 10px;
         }
-        .save-btn, .cancel-btn {
+        button {
           padding: 8px 14px;
           border-radius: 6px;
           border: none;
           cursor: pointer;
         }
-        .save-btn {
-          background: #2563eb;
-          color: white;
-        }
-        .cancel-btn {
-          background: #e5e7eb;
-        }
-        .save-btn:disabled {
-          background: #93c5fd;
+        button[disabled] {
+          opacity: 0.6;
           cursor: not-allowed;
-        }
-        .status-message {
-          margin-top: 12px;
-          padding: 8px 10px;
-          border-radius: 6px;
-          font-size: 0.9rem;
-        }
-        .status-message.success {
-          background: #dcfce7;
-          color: #166534;
-        }
-        .status-message.error {
-          background: #fee2e2;
-          color: #b91c1c;
         }
         .spinner {
           width: 14px;
@@ -155,6 +142,21 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        .status {
+          margin-top: 12px;
+          padding: 8px 10px;
+          border-radius: 6px;
+          font-size: 0.9rem;
+          text-align: center;
+        }
+        .status.success {
+          background: #dcfce7;
+          color: #166534;
+        }
+        .status.error {
+          background: #fee2e2;
+          color: #b91c1c;
         }
       `}</style>
     </div>
