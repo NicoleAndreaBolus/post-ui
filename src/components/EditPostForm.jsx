@@ -1,20 +1,14 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-// ✅ 1. Use the correct backend URL (no trailing /api if your backend mapping starts with /facebook/posts)
-const API_URL = 'https://post-api-x8s1.onrender.com/facebook/posts';
+const API_URL = 'https://post-api-x8s1.onrender.com/api/facebook/posts';
 
 const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
-  if (!post || post.id == null) {
-    return <div>Invalid post data</div>;
-  }
-
   const [formData, setFormData] = useState({
-    content: post.content ?? '',
-    imageUrl: post.imageUrl ?? ''
+    content: post.content,
+    imageUrl: post.imageUrl || ''
   });
-  const [loading, setLoading] = useState(false);
-  const [serverError, setServerError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,54 +17,58 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setServerError(null);
 
-    if (!formData.content.trim()) {
+    if (!formData.content || formData.content.trim() === '') {
       alert('Post content cannot be empty!');
       return;
     }
 
-    setLoading(true);
+    // Build payload - include existing post fields in case the API expects them
+    // (Adjust this to match your backend's expected shape)
+    const payload = {
+      ...post,
+      content: formData.content,
+      imageUrl: formData.imageUrl
+    };
+
+    // Log what we're about to send
+    console.log('PUT payload for post id', post.id, payload);
+
+    setIsSaving(true);
     try {
-      const id = Number(post.id);
+      const response = await axios.put(`${API_URL}/${post.id}`, payload, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      };
-
-      const payload = {
-        content: formData.content,
-        imageUrl: formData.imageUrl || null
-      };
-
-      console.log(`➡️ Sending PUT to: ${API_URL}/${id}`, payload);
-
-      const response = await axios.put(`${API_URL}/${id}`, payload, { headers });
-
-      console.log('✅ Update success:', response.data);
+      console.log('Update response:', response.data);
       onUpdateSuccess(response.data);
-    } catch (err) {
-      console.error('❌ Error updating post:', err);
 
-      const message =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        err.message ||
-        'Unknown error';
+    } catch (error) {
+      // Log as much info as possible to help debug the server-side 500
+      console.error('Full error object:', error);
+      if (error.response) {
+        console.error('Error response status:', error.response.status);
+        console.error('Error response headers:', error.response.headers);
+        console.error('Error response data:', error.response.data);
+      } else {
+        console.error('Error message:', error.message);
+      }
 
-      setServerError(message);
-      alert(`Failed to update post: ${message}`);
+      // User-friendly alert
+      const serverMsg = error.response && error.response.data
+        ? JSON.stringify(error.response.data)
+        : error.message;
+      alert('Failed to update post. Server returned: ' + serverMsg);
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
 
   return (
     <div className="edit-form-container">
       <h4>Editing Post by {post.author}</h4>
-
       <form onSubmit={handleSubmit}>
         <textarea
           name="content"
@@ -78,38 +76,23 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
           onChange={handleChange}
           rows="4"
           required
-          disabled={loading}
         />
-
         <input
           type="url"
           name="imageUrl"
           placeholder="Image URL"
           value={formData.imageUrl}
           onChange={handleChange}
-          disabled={loading}
         />
-
         <div className="edit-actions">
-          <button type="submit" className="save-btn" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Changes'}
+          <button type="submit" className="save-btn" disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
-          <button
-            type="button"
-            className="cancel-btn"
-            onClick={onCancelEdit}
-            disabled={loading}
-          >
+          <button type="button" className="cancel-btn" onClick={onCancelEdit} disabled={isSaving}>
             Cancel
           </button>
         </div>
       </form>
-
-      {serverError && (
-        <div className="error" style={{ color: 'red', marginTop: 8 }}>
-          Server error: {String(serverError)}
-        </div>
-      )}
     </div>
   );
 };
