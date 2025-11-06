@@ -8,7 +8,7 @@ function App() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const API_URL = 'http://localhost:8080/api/facebook/posts';
+  const API_URL = 'https://post-api-x8s1.onrender.com/api/facebook/posts';
 
   // Inline SVG placeholder as last-resort fallback (no external host)
   const placeholderSvg = `data:image/svg+xml;utf8,${encodeURIComponent(
