@@ -1,98 +1,162 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API_URL = 'https://post-api-x8s1.onrender.com/api/facebook/posts';
+const BASE_URL = 'https://post-api-x8s1.onrender.com/api/facebook/posts';
 
 const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
-  const [formData, setFormData] = useState({
-    content: post.content,
+  const [data, setData] = useState({
+    content: post.content || '',
     imageUrl: post.imageUrl || ''
   });
-  const [isSaving, setIsSaving] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(null); // "success", "error", or null
+  const [message, setMessage] = useState('');
 
-  const handleChange = (e) => {
+  const handleInput = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
+    setStatus(null);
+    setMessage('');
 
-    if (!formData.content || formData.content.trim() === '') {
-      alert('Post content cannot be empty!');
+    if (!data.content.trim()) {
+      setStatus('error');
+      setMessage('Post content cannot be empty.');
       return;
     }
 
-    // Build payload - include existing post fields in case the API expects them
-    // (Adjust this to match your backend's expected shape)
-    const payload = {
-      ...post,
-      content: formData.content,
-      imageUrl: formData.imageUrl
-    };
+    const payload = { ...post, content: data.content, imageUrl: data.imageUrl };
 
-    // Log what we're about to send
-    console.log('PUT payload for post id', post.id, payload);
-
-    setIsSaving(true);
+    setSaving(true);
+    setMessage('Saving changes...');
     try {
-      const response = await axios.put(`${API_URL}/${post.id}`, payload, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      const res = await axios.put(`${BASE_URL}/${post.id}`, payload, {
+        headers: { 'Content-Type': 'application/json' }
       });
 
-      console.log('Update response:', response.data);
-      onUpdateSuccess(response.data);
-
-    } catch (error) {
-      // Log as much info as possible to help debug the server-side 500
-      console.error('Full error object:', error);
-      if (error.response) {
-        console.error('Error response status:', error.response.status);
-        console.error('Error response headers:', error.response.headers);
-        console.error('Error response data:', error.response.data);
-      } else {
-        console.error('Error message:', error.message);
-      }
-
-      // User-friendly alert
-      const serverMsg = error.response && error.response.data
-        ? JSON.stringify(error.response.data)
-        : error.message;
-      alert('Failed to update post. Server returned: ' + serverMsg);
+      setStatus('success');
+      setMessage('Post updated successfully!');
+      onUpdateSuccess(res.data);
+    } catch (err) {
+      console.error('Update failed:', err);
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data ||
+        err.message ||
+        'Unknown server error.';
+      setStatus('error');
+      setMessage(`Failed to update: ${msg}`);
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
   return (
-    <div className="edit-form-container">
-      <h4>Editing Post by {post.author}</h4>
-      <form onSubmit={handleSubmit}>
+    <div className="edit-form">
+      <h4>Edit Post by {post.author}</h4>
+
+      <form onSubmit={handleSave}>
         <textarea
           name="content"
-          value={formData.content}
-          onChange={handleChange}
+          value={data.content}
+          onChange={handleInput}
           rows="4"
+          disabled={saving}
           required
         />
         <input
           type="url"
           name="imageUrl"
           placeholder="Image URL"
-          value={formData.imageUrl}
-          onChange={handleChange}
+          value={data.imageUrl}
+          onChange={handleInput}
+          disabled={saving}
         />
-        <div className="edit-actions">
-          <button type="submit" className="save-btn" disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
+
+        <div className="actions">
+          <button type="submit" disabled={saving} className="save-btn">
+            {saving ? (
+              <span className="spinner"></span>
+            ) : (
+              'Save'
+            )}
           </button>
-          <button type="button" className="cancel-btn" onClick={onCancelEdit} disabled={isSaving}>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            disabled={saving}
+            className="cancel-btn"
+          >
             Cancel
           </button>
         </div>
       </form>
+
+      {message && (
+        <div
+          className={`status-message ${
+            status === 'error' ? 'error' : status === 'success' ? 'success' : ''
+          }`}
+        >
+          {message}
+        </div>
+      )}
+
+      {/* Inline CSS styles (safe for GitHub/Render use) */}
+      <style jsx>{`
+        .actions {
+          margin-top: 10px;
+          display: flex;
+          gap: 10px;
+        }
+        .save-btn, .cancel-btn {
+          padding: 8px 14px;
+          border-radius: 6px;
+          border: none;
+          cursor: pointer;
+        }
+        .save-btn {
+          background: #2563eb;
+          color: white;
+        }
+        .cancel-btn {
+          background: #e5e7eb;
+        }
+        .save-btn:disabled {
+          background: #93c5fd;
+          cursor: not-allowed;
+        }
+        .status-message {
+          margin-top: 12px;
+          padding: 8px 10px;
+          border-radius: 6px;
+          font-size: 0.9rem;
+        }
+        .status-message.success {
+          background: #dcfce7;
+          color: #166534;
+        }
+        .status-message.error {
+          background: #fee2e2;
+          color: #b91c1c;
+        }
+        .spinner {
+          width: 14px;
+          height: 14px;
+          border: 2px solid #fff;
+          border-top: 2px solid #2563eb;
+          border-radius: 50%;
+          display: inline-block;
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
