@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const API_URL = 'https://post-api-x8s1.onrender.com/api/facebook/posts';
+// ✅ 1. Use the correct backend URL (no trailing /api if your backend mapping starts with /facebook/posts)
+const API_URL = 'https://post-api-x8s1.onrender.com/facebook/posts';
 
 const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
   if (!post || post.id == null) {
-    // defensive: don't render form if post is missing
     return <div>Invalid post data</div>;
   }
 
@@ -25,19 +25,16 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
     e.preventDefault();
     setServerError(null);
 
-    if (!formData.content || !formData.content.trim()) {
+    if (!formData.content.trim()) {
       alert('Post content cannot be empty!');
       return;
     }
 
     setLoading(true);
     try {
-      // If your API accepts partial updates, consider PATCH instead of PUT
-      // Use parseInt if your backend expects a numeric id
       const id = Number(post.id);
 
-      // Optional: include auth token if your API requires authorization
-      const token = localStorage.getItem('token'); // adjust to your auth storage
+      const token = localStorage.getItem('token');
       const headers = {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -45,27 +42,24 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
 
       const payload = {
         content: formData.content,
-        imageUrl: formData.imageUrl || null // send null if empty, depends on API
+        imageUrl: formData.imageUrl || null
       };
+
+      console.log(`➡️ Sending PUT to: ${API_URL}/${id}`, payload);
 
       const response = await axios.put(`${API_URL}/${id}`, payload, { headers });
 
-      // return updated object to parent
+      console.log('✅ Update success:', response.data);
       onUpdateSuccess(response.data);
     } catch (err) {
-      // Better error logging for debugging
-      console.error('Error updating post (full error):', err);
-      console.error('axios error.toJSON():', err.toJSON ? err.toJSON() : undefined);
-      console.error('response status:', err.response?.status);
-      console.error('response headers:', err.response?.headers);
-      console.error('response data:', err.response?.data);
+      console.error('❌ Error updating post:', err);
 
-      // friendly message to UI, include server message if available
       const message =
         err.response?.data?.message ||
-        err.response?.data ||
+        err.response?.data?.error ||
         err.message ||
         'Unknown error';
+
       setServerError(message);
       alert(`Failed to update post: ${message}`);
     } finally {
@@ -85,7 +79,7 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
           rows="4"
           required
           disabled={loading}
-        ></textarea>
+        />
 
         <input
           type="url"
@@ -100,7 +94,12 @@ const EditPostForm = ({ post, onUpdateSuccess, onCancelEdit }) => {
           <button type="submit" className="save-btn" disabled={loading}>
             {loading ? 'Saving...' : 'Save Changes'}
           </button>
-          <button type="button" className="cancel-btn" onClick={onCancelEdit} disabled={loading}>
+          <button
+            type="button"
+            className="cancel-btn"
+            onClick={onCancelEdit}
+            disabled={loading}
+          >
             Cancel
           </button>
         </div>
